@@ -2,23 +2,56 @@ const { createOrUpdateUser } = require("./utils");
 const { requireAuth } = require("./middleware");
 
 async function authRoutes(fastify: any, options: any) {
+  // Development mock login (REMOVE IN PRODUCTION!)
+  fastify.get("/mock-login", async (request: any, reply: any) => {
+    try {
+      // Mock user data for testing
+      const mockUser = {
+        id: "mock123",
+        email: "test@blockful.io",
+        name: "Test User",
+        picture: "https://via.placeholder.com/150",
+      };
+
+      // Create or update user in database
+      const user = await createOrUpdateUser(mockUser);
+
+      // Set session
+      request.session.userId = user.id;
+      request.session.user = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+      };
+
+      fastify.log.info(`Mock user logged in: ${user.email}`);
+      reply.redirect("/dashboard");
+    } catch (error: any) {
+      fastify.log.error("Mock login error:", error);
+      reply.code(500).send({
+        error: "Mock login failed",
+        message: error.message,
+      });
+    }
+  });
+
   // Initiate Google OAuth login
   fastify.get("/google", async (request: any, reply: any) => {
     try {
       const redirectUrl = await fastify.googleOAuth2.generateAuthorizationUri(
         request,
-        reply,
-        {
-          scope: ["profile", "email"],
-        }
+        reply
       );
 
       reply.redirect(redirectUrl);
     } catch (error) {
-      fastify.log.error("OAuth initiation error:", error);
+      fastify.log.error("OAuth initiation error - Full details:", error);
+      console.error("GOOGLE OAUTH ERROR:", error);
       reply.code(500).send({
         error: "Authentication failed",
         message: "Could not initiate Google login",
+        debug: error instanceof Error ? error.message : String(error),
       });
     }
   });
